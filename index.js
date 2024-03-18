@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const dns = require('dns');
 const cors = require('cors');
+const fs = require('fs');
 const app = express();
 
 // Basic Configuration
@@ -23,23 +24,30 @@ app.get('/api/hello', function(req, res) {
 });
 
 app.post('/api/shorturl', (req, res) => {
-  dns.lookup(req.body.url, (err, address, family) => {
-    if (err)
-      res.json({ error: 'Invalid URL' })
+  const url = req.body.url;
+  const urlObject = new URL(url);
+
+  dns.lookup(urlObject.host, (err, address, family) => {
+    //Checks if there is an error or if the URL is invalid
+    if (err || !address)
+      res.json({ "error": "invalid url" });
     else {
+      //Writes the URL in a file called url.json
+      fs.writeFileSync('./url.json', JSON.stringify({ original_url: req.body.url }));
       res.json({ "original_url": req.body.url, "short_url": family });
     }
-   })
+  });
 });
 
-app.get('/api/shorturl/:short_url', (req, res) => {
-  console.log(req.url)
-  res.redirect('https://forum.freecodecamp.org/');
+app.get('/api/shorturl/:short', (req, res) => {
+  //Checks if there is a valid URL in the url.json file
+  try {
+    const url = JSON.parse(fs.readFileSync('./url.json')).original_url;
+    res.redirect(url);
+  } catch (e) {
+    res.json({ "error": "invalid url" });
+  }
 });
-
-app.use((req, res) => {
-  res.json({ error: 'Invalid URL' });
-})
 
 app.listen(port, function() {
   console.log(`Listening on port ${port}`);
